@@ -9,8 +9,6 @@
     <ApplicationVersion>1</ApplicationVersion>
     <ApplicationDisplayVersion>2.0.0</ApplicationDisplayVersion>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
-    
-    <!-- حصر المعمارية على معالجات الهواتف فقط وحذف معالجات الكمبيوتر -->
     <RuntimeIdentifiers>android-arm64</RuntimeIdentifiers>
 
     <IsAotCompatible>false</IsAotCompatible>
@@ -20,6 +18,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- تضمين ملفات الويب والأصول داخل الـ APK -->
+    <AndroidAsset Include="Assets/**" />
+
     <ProjectReference Include="../AssetRipper.Assets/AssetRipper.Assets.csproj" />
     <ProjectReference Include="../AssetRipper.Import/AssetRipper.Import.csproj" />
     <ProjectReference Include="../AssetRipper.Processing/AssetRipper.Processing.csproj" />
