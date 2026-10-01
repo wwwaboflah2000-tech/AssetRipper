@@ -10,7 +10,6 @@
     <ApplicationDisplayVersion>2.0.0</ApplicationDisplayVersion>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
     
-    <!-- تعطيل قيود AOT لبيئة أندرويد -->
     <IsAotCompatible>false</IsAotCompatible>
     <PublishAot>false</PublishAot>
     <RunAOTCompilation>false</RunAOTCompilation>
@@ -24,5 +23,6 @@
     <ProjectReference Include="../AssetRipper.Export.PrimaryContent/AssetRipper.Export.PrimaryContent.csproj" />
     <ProjectReference Include="../AssetRipper.Export.UnityProjects/AssetRipper.Export.UnityProjects.csproj" />
     <ProjectReference Include="../AssetRipper.IO.Files/AssetRipper.IO.Files.csproj" />
+    <ProjectReference Include="../AssetRipper.Configuration/AssetRipper.Configuration.csproj" />
   </ItemGroup>
 </Project>
