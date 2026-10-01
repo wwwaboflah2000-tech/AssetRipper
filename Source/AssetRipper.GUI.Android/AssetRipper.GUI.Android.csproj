@@ -10,6 +10,9 @@
     <ApplicationDisplayVersion>2.0.0</ApplicationDisplayVersion>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
     
+    <!-- حصر المعمارية على معالجات الهواتف فقط وحذف معالجات الكمبيوتر -->
+    <RuntimeIdentifiers>android-arm64</RuntimeIdentifiers>
+
     <IsAotCompatible>false</IsAotCompatible>
     <PublishAot>false</PublishAot>
     <RunAOTCompilation>false</RunAOTCompilation>
