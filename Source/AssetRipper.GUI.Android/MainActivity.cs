@@ -1,38 +1,16 @@
-using Android.App;
-using Android.Content;
-using Android.OS;
-using Android.Widget;
-using Android.Views;
-
-namespace AssetRipper.GUI.Android;
-
-[Activity(Label = "AssetRipper", MainLauncher = true, Theme = "@android:style/Theme.Material.Light.NoActionBar")]
-public class MainActivity : Activity
-{
-    private TextView? _logTextView;
-    private ScrollView? _scrollView;
-    private Button? _btnSelectFile;
-    private Button? _btnStart;
-
-    private string? _selectedInputPath;
-    private string? _selectedOutputPath;
-    private readonly AssetRipperService _ripperService = new();
-
-    private const int REQUEST_PICK_FILE = 1001;
-
-    protected override void OnCreate(Bundle? savedInstanceState)
-    {
-        base.OnCreate(savedInstanceState);
-
-        // طلب إذن الوصول لجميع الملفات على أندرويد 11 فما فوق
-        if (Build.VERSION.SdkInt >= BuildVersionCodes.R)
+protected override void OnCreate(Bundle? savedInstanceState)
         {
-            if (!global::Android.OS.Environment.IsExternalStorageManager)
+            base.OnCreate(savedInstanceState);
+
+            // طلب صلاحيات الملفات لأجهزة أندرويد 11 و 12 و 13 (API 30+)
+            if (OperatingSystem.IsAndroidVersionAtLeast(30))
             {
-                var intent = new Intent(global::Android.Provider.Settings.ActionManageAllFilesAccessPermission);
-                StartActivity(intent);
+                if (!global::Android.OS.Environment.IsExternalStorageManager)
+                {
+                    var intent = new Intent(global::Android.Provider.Settings.ActionManageAllFilesAccessPermission);
+                    StartActivity(intent);
+                }
             }
-        }
 
         var layout = new LinearLayout(this)
         {
