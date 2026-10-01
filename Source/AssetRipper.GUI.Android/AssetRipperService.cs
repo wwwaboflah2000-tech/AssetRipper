@@ -1,5 +1,7 @@
 using AssetRipper.Export.UnityProjects;
 using AssetRipper.Import.Logging;
+using AssetRipper.Import.Configuration;
+using AssetRipper.IO.Files;
 
 namespace AssetRipper.GUI.Android;
 
@@ -20,17 +22,21 @@ public class AssetRipperService
             {
                 OnLogReceived?.Invoke($"[AssetRipper] Loading: {inputFilePath}");
                 var paths = new List<string> { inputFilePath };
+                var fileSystem = new LocalFileSystem();
+                var configuration = new CoreConfiguration();
+
+                // 1. إنشاء كائن الـ ExportHandler وتمرير الـ FileSystem
+                var exportHandler = new ExportHandler(configuration);
+                var gameData = ExportHandler.Load(paths, fileSystem);
                 
-                // تحميل ملفات وبنى اللعبة
-                var gameData = ExportHandler.Load(paths);
                 OnLogReceived?.Invoke("[AssetRipper] Game loaded successfully. Processing assets...");
 
-                // معالجة الأصول (فك الهياكل، الأنيميشن، وغيرها)
-                ExportHandler.Process(gameData);
+                // 2. معالجة البيانات عبر كائن exportHandler
+                exportHandler.Process(gameData);
                 OnLogReceived?.Invoke($"[AssetRipper] Processing finished. Exporting to: {outputDirectory}...");
 
-                // تصدير الأصول
-                ExportHandler.Export(gameData, outputDirectory);
+                // 3. تصدير الأصول مع تمرير الـ FileSystem
+                exportHandler.Export(gameData, outputDirectory, fileSystem);
                 OnLogReceived?.Invoke("[AssetRipper] Completed successfully!");
             }
             catch (Exception ex)
