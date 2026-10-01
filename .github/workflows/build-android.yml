@@ -1,0 +1,58 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Java Development Kit (JDK)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install .NET Android Workload
+        run: dotnet workload install android
+
+      - name: Build Android Project (.NET 10)
+        run: |
+          dotnet build Source/AssetRipper.GUI.Android/AssetRipper.GUI.Android.csproj \
+            -c Release \
+            -f net10.0-android \
+            -p:AndroidPackageFormat=apk
+
+      - name: Sign APK with Debug Keystore
+        run: |
+          # البحث عن الـ APK المجمّع
+          APK_PATH=$(find Source/AssetRipper.GUI.Android/bin/Release -name "*.apk" | head -n 1)
+          echo "Found APK at: $APK_PATH"
+          
+          # توليد مفتاح توقيع مؤقت
+          keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=AndroidDebug,O=Android,C=US"
+          
+          # توقيع الملف ليكون قابلاً للتثبيت مباشرة
+          jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 -keystore debug.keystore -storepass android "$APK_PATH" androiddebugkey
+          
+          mkdir -p output
+          cp "$APK_PATH" output/AssetRipper-Android.apk
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AssetRipper-Android-APK
+          path: output/AssetRipper-Android.apk
