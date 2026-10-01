@@ -1,16 +1,38 @@
-protected override void OnCreate(Bundle? savedInstanceState)
-        {
-            base.OnCreate(savedInstanceState);
+using Android.App;
+using Android.Content;
+using Android.OS;
+using Android.Widget;
+using Android.Views;
 
-            // طلب صلاحيات الملفات لأجهزة أندرويد 11 و 12 و 13 (API 30+)
-            if (OperatingSystem.IsAndroidVersionAtLeast(30))
+namespace AssetRipper.GUI.Android;
+
+[Activity(Label = "AssetRipper", MainLauncher = true, Theme = "@android:style/Theme.Material.Light.NoActionBar")]
+public class MainActivity : Activity
+{
+    private TextView? _logTextView;
+    private ScrollView? _scrollView;
+    private Button? _btnSelectFile;
+    private Button? _btnStart;
+
+    private string? _selectedInputPath;
+    private string? _selectedOutputPath;
+    private readonly AssetRipperService _ripperService = new();
+
+    private const int REQUEST_PICK_FILE = 1001;
+
+    protected override void OnCreate(Bundle? savedInstanceState)
+    {
+        base.OnCreate(savedInstanceState);
+
+        // طلب صلاحيات الملفات لأجهزة أندرويد 11 و 12 و 13 (API 30+)
+        if (OperatingSystem.IsAndroidVersionAtLeast(30))
+        {
+            if (!global::Android.OS.Environment.IsExternalStorageManager)
             {
-                if (!global::Android.OS.Environment.IsExternalStorageManager)
-                {
-                    var intent = new Intent(global::Android.Provider.Settings.ActionManageAllFilesAccessPermission);
-                    StartActivity(intent);
-                }
+                var intent = new Intent(global::Android.Provider.Settings.ActionManageAllFilesAccessPermission);
+                StartActivity(intent);
             }
+        }
 
         var layout = new LinearLayout(this)
         {
