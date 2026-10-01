@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>AssetRipper</title>
+    <link rel="stylesheet" href="site.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="brand">
+            <span>🎮 AssetRipper</span>
+            <span class="badge">Android v2.0</span>
+        </div>
+        <div id="statusDot" style="width: 10px; height: 10px; border-radius: 50%; background: #4caf50;"></div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="tabs">
+        <button class="tab-btn active" onclick="switchTab('commands')">Commands</button>
+        <button class="tab-btn" onclick="switchTab('assets')">Asset Browser</button>
+        <button class="tab-btn" onclick="switchTab('preview')">3D Preview</button>
+    </nav>
+
+    <div class="container">
+        <!-- Tab 1: Commands & Extraction -->
+        <div id="tab-commands" class="tab-pane active">
+            <div class="card">
+                <div class="card-title">1. Game Asset Input</div>
+                <button class="btn btn-secondary" id="btnSelect" onclick="selectFile()">
+                    📁 Select Game File (.apk / .bundle / .assets)
+                </button>
+                <div id="selectedFilePath" style="font-size: 0.8rem; color: var(--secondary-color); word-break: break-all;">
+                    No file selected
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">2. Export Configuration</div>
+                <div class="form-check">
+                    <input type="checkbox" id="chkUnityProject">
+                    <label for="chkUnityProject">Export as Reconstructed Unity Project</label>
+                </div>
+                <button class="btn btn-primary" id="btnExtract" onclick="startExtraction()" disabled>
+                    🚀 Start Extraction
+                </button>
+            </div>
+
+            <div class="card">
+                <div class="card-title" style="display: flex; justify-content: space-between;">
+                    <span>Console Output</span>
+                    <span style="font-size: 0.75rem; color: var(--primary-color); cursor: pointer;" onclick="clearLogs()">Clear</span>
+                </div>
+                <div class="terminal" id="terminal">System initialized. Ready for operations.</div>
+            </div>
+        </div>
+
+        <!-- Tab 2: Asset Browser -->
+        <div id="tab-assets" class="tab-pane">
+            <div class="card">
+                <div class="card-title">Detected Unity Assets</div>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px;">
+                    Inspect internal classes and assets after loading.
+                </p>
+                <div id="assetList" style="display: flex; flex-direction: column; gap: 8px;">
+                    <div style="padding: 10px; background: var(--surface-border); border-radius: 6px; font-size: 0.85rem;">
+                        Load a game file to inspect its internal assets table.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 3: 3D Previewer -->
+        <div id="tab-preview" class="tab-pane">
+            <div class="card">
+                <div class="card-title">Interactive Mesh Viewport (WebGL)</div>
+                <div id="viewport3d">
+                    <span>3D Viewport Ready (Three.js Engine)</span>
+                </div>
+                <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 10px; text-align: center;">
+                    Rotate with single finger touch • Zoom with pinch
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bridge Script -->
+    <script>
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+
+            if (tabName === 'commands') {
+                document.querySelectorAll('.tab-btn')[0].classList.add('active');
+                document.getElementById('tab-commands').classList.add('active');
+            } else if (tabName === 'assets') {
+                document.querySelectorAll('.tab-btn')[1].classList.add('active');
+                document.getElementById('tab-assets').classList.add('active');
+            } else if (tabName === 'preview') {
+                document.querySelectorAll('.tab-btn')[2].classList.add('active');
+                document.getElementById('tab-preview').classList.add('active');
+            }
+        }
+
+        function log(msg) {
+            const term = document.getElementById('terminal');
+            term.innerText += '\n' + msg;
+            term.scrollTop = term.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('terminal').innerText = 'Console cleared.';
+        }
+
+        function selectFile() {
+            if (window.AndroidBridge) {
+                window.AndroidBridge.pickFile();
+            } else {
+                log('[Warning] AndroidBridge not detected (Testing in browser?)');
+            }
+        }
+
+        function onFileSelected(fileName) {
+            document.getElementById('selectedFilePath').innerText = 'Loaded: ' + fileName;
+            document.getElementById('btnExtract').disabled = false;
+            document.getElementById('btnSelect').innerText = '✅ File Ready';
+            log('[AssetRipper] Input assigned: ' + fileName);
+        }
+
+        function startExtraction() {
+            const isUnity = document.getElementById('chkUnityProject').checked;
+            document.getElementById('btnExtract').disabled = true;
+            log('[AssetRipper] Launching extraction pipeline...');
+            if (window.AndroidBridge) {
+                window.AndroidBridge.runExtraction(isUnity);
+            }
+        }
+
+        function onExtractionCompleted(success) {
+            document.getElementById('btnExtract').disabled = false;
+            log(success ? '[AssetRipper] Finished successfully!' : '[AssetRipper] Completed with errors.');
+        }
+    </script>
+</body>
+</html>
