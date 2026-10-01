@@ -1,7 +1,7 @@
 name: Build Android APK
 
 on:
-  workflow_dispatch: # يعمل فقط عند الضغط على زر التشغيل يدوياً
+  workflow_dispatch:
 
 jobs:
   build-apk:
@@ -27,23 +27,37 @@ jobs:
       - name: Install .NET Android Workload
         run: dotnet workload install android
 
-      - name: Build Android Project (.NET 10)
+      - name: Build Android Project (ARM64 Only)
         run: |
           dotnet build Source/AssetRipper.GUI.Android/AssetRipper.GUI.Android.csproj \
             -c Release \
             -f net10.0-android \
+            -r android-arm64 \
             -p:AndroidPackageFormat=apk
 
-      - name: Sign APK with Debug Keystore
+      - name: Sign APK with apksigner (V2 & V3 for Android 13+)
         run: |
-          APK_PATH=$(find Source/AssetRipper.GUI.Android/bin/Release -name "*.apk" | head -n 1)
-          echo "Found APK at: $APK_PATH"
-          
-          keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=AndroidDebug,O=Android,C=US"
-          jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 -keystore debug.keystore -storepass android "$APK_PATH" androiddebugkey
-          
+          # العثور على أدوات أندرويد الرسمية
+          BUILD_TOOLS=$(find $ANDROID_HOME/build-tools -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
+          echo "Using Android Build Tools: $BUILD_TOOLS"
+
+          # العثور على الـ APK المجمّع
+          RAW_APK=$(find Source/AssetRipper.GUI.Android/bin/Release -name "*.apk" | head -n 1)
+          echo "Found APK at: $RAW_APK"
+
           mkdir -p output
-          cp "$APK_PATH" output/AssetRipper-Android.apk
+
+          # 1. محاذاة الملف (Zipalign) - إلزامي لتثبيت تطبيقات أندرويد
+          $BUILD_TOOLS/zipalign -f -p 4 "$RAW_APK" output/aligned.apk
+
+          # 2. توليد مفتاح التوقيع
+          keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=AndroidDebug,O=Android,C=US"
+
+          # 3. التوقيع باستخدام apksigner الرسمي (يدعم V1 و V2 و V3 لأندرويد 13)
+          $BUILD_TOOLS/apksigner sign --ks debug.keystore --ks-pass pass:android --key-pass pass:android --out output/AssetRipper-Android.apk output/aligned.apk
+
+          # 4. التحقق من أن التوقيع مكتمل وسليم
+          $BUILD_TOOLS/apksigner verify -v output/AssetRipper-Android.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
