@@ -1,28 +1,59 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net10.0-android</TargetFramework>
-    <SupportedOSPlatformVersion>26.0</SupportedOSPlatformVersion>
-    <OutputType>Exe</OutputType>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <ApplicationId>com.assetripper.android</ApplicationId>
-    <ApplicationVersion>1</ApplicationVersion>
-    <ApplicationDisplayVersion>2.0.0</ApplicationDisplayVersion>
-    <AndroidPackageFormat>apk</AndroidPackageFormat>
-    
-    <IsAotCompatible>false</IsAotCompatible>
-    <PublishAot>false</PublishAot>
-    <RunAOTCompilation>false</RunAOTCompilation>
-    <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
-  </PropertyGroup>
+using AssetRipper.Export.UnityProjects;
+using AssetRipper.Export.Configuration;
+using AssetRipper.Import.Logging;
+using AssetRipper.IO.Files;
 
-  <ItemGroup>
-    <ProjectReference Include="../AssetRipper.Assets/AssetRipper.Assets.csproj" />
-    <ProjectReference Include="../AssetRipper.Import/AssetRipper.Import.csproj" />
-    <ProjectReference Include="../AssetRipper.Processing/AssetRipper.Processing.csproj" />
-    <ProjectReference Include="../AssetRipper.Export.PrimaryContent/AssetRipper.Export.PrimaryContent.csproj" />
-    <ProjectReference Include="../AssetRipper.Export.UnityProjects/AssetRipper.Export.UnityProjects.csproj" />
-    <ProjectReference Include="../AssetRipper.IO.Files/AssetRipper.IO.Files.csproj" />
-    <ProjectReference Include="../AssetRipper.Configuration/AssetRipper.Configuration.csproj" />
-  </ItemGroup>
-</Project>
+namespace AssetRipper.GUI.Android;
+
+public class AssetRipperService
+{
+    public event Action<string>? OnLogReceived;
+
+    public AssetRipperService()
+    {
+        Logger.Add(new CustomAndroidLogger(msg => OnLogReceived?.Invoke(msg)));
+    }
+
+    public async Task ExtractGameAsync(string inputFilePath, string outputDirectory)
+    {
+        await Task.Run(() =>
+        {
+            try
+            {
+                OnLogReceived?.Invoke($"[AssetRipper] Loading: {inputFilePath}");
+                var paths = new List<string> { inputFilePath };
+                var fileSystem = new LocalFileSystem();
+                
+                var configuration = new FullConfiguration();
+
+                var exportHandler = new ExportHandler(configuration);
+                var gameData = exportHandler.Load(paths, fileSystem);
+                
+                OnLogReceived?.Invoke("[AssetRipper] Game loaded successfully. Processing assets...");
+
+                exportHandler.Process(gameData);
+                OnLogReceived?.Invoke($"[AssetRipper] Processing finished. Exporting to: {outputDirectory}...");
+
+                exportHandler.Export(gameData, outputDirectory, fileSystem);
+                OnLogReceived?.Invoke("[AssetRipper] Completed successfully!");
+            }
+            catch (Exception ex)
+            {
+                OnLogReceived?.Invoke($"[ERROR] Extraction failed: {ex.Message}\n{ex.StackTrace}");
+            }
+        });
+    }
+
+    private class CustomAndroidLogger : ILogger
+    {
+        private readonly Action<string> _logCallback;
+        public CustomAndroidLogger(Action<string> logCallback) => _logCallback = logCallback;
+
+        public void Log(LogType type, LogCategory category, string message)
+        {
+            _logCallback?.Invoke($"[{type}] {message}");
+        }
+
+        public void BlankLine(int count = 1) { }
+    }
+}
