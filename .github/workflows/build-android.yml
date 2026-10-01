@@ -1,9 +1,7 @@
 name: Build Android APK
 
 on:
-  push:
-    branches: [ master, main ]
-  workflow_dispatch:
+  workflow_dispatch: # يعمل فقط عند الضغط على زر التشغيل يدوياً
 
 jobs:
   build-apk:
@@ -38,14 +36,10 @@ jobs:
 
       - name: Sign APK with Debug Keystore
         run: |
-          # البحث عن الـ APK المجمّع
           APK_PATH=$(find Source/AssetRipper.GUI.Android/bin/Release -name "*.apk" | head -n 1)
           echo "Found APK at: $APK_PATH"
           
-          # توليد مفتاح توقيع مؤقت
           keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=AndroidDebug,O=Android,C=US"
-          
-          # توقيع الملف ليكون قابلاً للتثبيت مباشرة
           jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 -keystore debug.keystore -storepass android "$APK_PATH" androiddebugkey
           
           mkdir -p output
