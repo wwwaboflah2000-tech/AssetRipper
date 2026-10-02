@@ -1,6 +1,8 @@
 using AssetRipper.Export.UnityProjects;
+using AssetRipper.Export.PrimaryContent;
 using AssetRipper.Export.Configuration;
 using AssetRipper.Import.Logging;
+using AssetRipper.Import.Structure.GameStructure;
 using AssetRipper.IO.Files;
 
 namespace AssetRipper.GUI.Android;
@@ -8,44 +10,103 @@ namespace AssetRipper.GUI.Android;
 public class AssetRipperService
 {
     public event Action<string>? OnLogReceived;
+    public string CurrentTarget { get; private set; } = "None";
+    public bool IsLoaded { get; private set; } = false;
+
+    private GameData? _loadedGameData;
+    private readonly FullConfiguration _configuration = new();
+    private readonly LocalFileSystem _fileSystem = new();
 
     public AssetRipperService()
     {
         Logger.Add(new CustomAndroidLogger(msg => OnLogReceived?.Invoke(msg)));
     }
 
-    public async Task ExtractGameAsync(string inputFilePath, string outputDirectory)
+    public async Task<bool> LoadGameAsync(List<string> paths)
     {
-        await Task.Run(() =>
+        return await Task.Run(() =>
         {
             try
             {
-                OnLogReceived?.Invoke($"[AssetRipper] Loading: {inputFilePath}");
-                var paths = new List<string> { inputFilePath };
-                var fileSystem = new LocalFileSystem();
-                
-                // 1. استخدام FullConfiguration الصحيح
-                var configuration = new FullConfiguration();
+                OnLogReceived?.Invoke($"[AssetRipper API] Loading paths ({paths.Count} items)...");
+                var exportHandler = new ExportHandler(_configuration);
+                _loadedGameData = exportHandler.Load(paths, _fileSystem);
 
-                // 2. إنشاء الكائن واستدعاء دالة Load عبر الكائن نفسه (exportHandler)
-                var exportHandler = new ExportHandler(configuration);
-                var gameData = exportHandler.Load(paths, fileSystem);
-                
-                OnLogReceived?.Invoke("[AssetRipper] Game loaded successfully. Processing assets...");
+                OnLogReceived?.Invoke("[AssetRipper API] Processing game data...");
+                exportHandler.Process(_loadedGameData);
 
-                // 3. معالجة البيانات عبر نفس الكائن
-                exportHandler.Process(gameData);
-                OnLogReceived?.Invoke($"[AssetRipper] Processing finished. Exporting to: {outputDirectory}...");
-
-                // 4. تصدير الأصول عبر نفس الكائن
-                exportHandler.Export(gameData, outputDirectory, fileSystem);
-                OnLogReceived?.Invoke("[AssetRipper] Completed successfully!");
+                IsLoaded = true;
+                CurrentTarget = string.Join(", ", paths);
+                OnLogReceived?.Invoke("[AssetRipper API] Game loaded and processed successfully!");
+                return true;
             }
             catch (Exception ex)
             {
-                OnLogReceived?.Invoke($"[ERROR] Extraction failed: {ex.Message}\n{ex.StackTrace}");
+                OnLogReceived?.Invoke($"[ERROR] Loading failed: {ex.Message}");
+                IsLoaded = false;
+                return false;
             }
         });
+    }
+
+    public async Task<bool> ExportUnityProjectAsync(string outputDir)
+    {
+        return await Task.Run(() =>
+        {
+            if (_loadedGameData == null)
+            {
+                OnLogReceived?.Invoke("[ERROR] No game loaded. Please execute LoadFile/LoadFolder first.");
+                return false;
+            }
+
+            try
+            {
+                OnLogReceived?.Invoke($"[AssetRipper API] Exporting full Unity Project to: {outputDir}");
+                var exportHandler = new ExportHandler(_configuration);
+                exportHandler.Export(_loadedGameData, outputDir, _fileSystem);
+                OnLogReceived?.Invoke("[AssetRipper API] Export Unity Project finished successfully!");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                OnLogReceived?.Invoke($"[ERROR] Export failed: {ex.Message}");
+                return false;
+            }
+        });
+    }
+
+    public async Task<bool> ExportPrimaryContentAsync(string outputDir)
+    {
+        return await Task.Run(() =>
+        {
+            if (_loadedGameData == null)
+            {
+                OnLogReceived?.Invoke("[ERROR] No game loaded. Please execute LoadFile/LoadFolder first.");
+                return false;
+            }
+
+            try
+            {
+                OnLogReceived?.Invoke($"[AssetRipper API] Exporting Raw Primary Content to: {outputDir}");
+                var primaryExporter = new PrimaryContentExporter(_configuration);
+                primaryExporter.Export(_loadedGameData.GameBundle, outputDir, _fileSystem);
+                OnLogReceived?.Invoke("[AssetRipper API] Export Primary Content finished successfully!");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                OnLogReceived?.Invoke($"[ERROR] Export primary failed: {ex.Message}");
+                return false;
+            }
+        });
+    }
+
+    public void Reset()
+    {
+        _loadedGameData = null;
+        IsLoaded = false;
+        CurrentTarget = "None";
+        OnLogReceived?.Invoke("[AssetRipper API] Engine state reset.");
     }
 
     private class CustomAndroidLogger : ILogger
