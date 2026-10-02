@@ -2,7 +2,7 @@ using AssetRipper.Export.UnityProjects;
 using AssetRipper.Export.PrimaryContent;
 using AssetRipper.Export.Configuration;
 using AssetRipper.Import.Logging;
-using AssetRipper.Import.Structure.GameStructure;
+using AssetRipper.Processing;
 using AssetRipper.IO.Files;
 
 namespace AssetRipper.GUI.Android;
@@ -28,7 +28,7 @@ public class AssetRipperService
         {
             try
             {
-                OnLogReceived?.Invoke($"[AssetRipper API] Loading paths ({paths.Count} items)...");
+                OnLogReceived?.Invoke($"[AssetRipper API] Loading {paths.Count} path(s)...");
                 var exportHandler = new ExportHandler(_configuration);
                 _loadedGameData = exportHandler.Load(paths, _fileSystem);
 
