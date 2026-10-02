@@ -15,12 +15,19 @@
     <PublishAot>false</PublishAot>
     <RunAOTCompilation>false</RunAOTCompilation>
     <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+
+    <!-- ضغط التجميعات وحذف ملفات تصحيح الأخطاء لتقليل حجم الـ APK -->
+    <AndroidEnableAssemblyCompression>true</AndroidEnableAssemblyCompression>
+    <DebugSymbols>false</DebugSymbols>
+    <DebugType>none</DebugType>
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- تضمين ملفات الويب والأصول داخل الـ APK -->
-    <AndroidAsset Include="Assets/**" />
+    <Content Remove="**/*.dylib" />
+    <None Remove="**/*.dylib" />
+  </ItemGroup>
 
+  <ItemGroup>
     <ProjectReference Include="../AssetRipper.Assets/AssetRipper.Assets.csproj" />
     <ProjectReference Include="../AssetRipper.Import/AssetRipper.Import.csproj" />
     <ProjectReference Include="../AssetRipper.Processing/AssetRipper.Processing.csproj" />
