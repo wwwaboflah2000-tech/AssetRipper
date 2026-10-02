@@ -3,7 +3,6 @@ using Android.Content;
 using Android.OS;
 using Android.Webkit;
 using Android.Views;
-using Java.Interop;
 
 namespace AssetRipper.GUI.Android;
 
@@ -11,11 +10,12 @@ namespace AssetRipper.GUI.Android;
 public class MainActivity : Activity
 {
     private WebView? _webView;
-    private string? _selectedInputPath;
-    private string? _selectedOutputPath;
     private readonly AssetRipperService _ripperService = new();
+    private AssetRipperApiServer? _apiServer;
+    private const int PORT = 5678;
 
     private const int REQUEST_PICK_FILE = 1001;
+    private const int REQUEST_PICK_FOLDER = 1002;
 
     protected override void OnCreate(Bundle? savedInstanceState)
     {
@@ -30,40 +30,52 @@ public class MainActivity : Activity
             }
         }
 
-        // إنشاء متصفح الـ WebView المدمج
-        _webView = new WebView(this)
+        // تشغيل خادم الـ REST API الرسمي
+        _apiServer = new AssetRipperApiServer(_ripperService, this, PORT);
+        _apiServer.Start();
+
+        var layout = new Android.Widget.LinearLayout(this)
         {
+            Orientation = Android.Widget.Orientation.Vertical,
             LayoutParameters = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent)
         };
 
-        // تفعيل ميزات الويب المتقدمة واللمس وJavaScript
+        // زر علوي لفتح واجهة Swagger في متصفح Chrome
+        var btnOpenChrome = new Android.Widget.Button(this)
+        {
+            Text = "🌐 Open Official Swagger in Chrome"
+        };
+        btnOpenChrome.Click += (s, e) =>
+        {
+            var intent = new Intent(Intent.ActionView, Android.Net.Uri.Parse($"http://127.0.0.1:{PORT}/swagger"));
+            intent.AddFlags(ActivityFlags.NewTask);
+            StartActivity(intent);
+        };
+        layout.AddView(btnOpenChrome);
+
+        // شاشة الـ WebView الداخلية لعرض Swagger داخل التطبيق
+        _webView = new WebView(this)
+        {
+            LayoutParameters = new Android.Widget.LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 0, 1.0f)
+        };
         _webView.Settings.JavaScriptEnabled = true;
         _webView.Settings.DomStorageEnabled = true;
-        _webView.Settings.AllowFileAccess = true;
-        _webView.Settings.AllowContentAccess = true;
         _webView.SetWebViewClient(new WebViewClient());
+        layout.AddView(_webView);
 
-        // ربط جسر التواصل بين JS و C#
-        _webView.AddJavascriptInterface(new WebAppInterface(this), "AndroidBridge");
+        SetContentView(layout);
 
-        SetContentView(_webView);
+        _webView.LoadUrl($"http://127.0.0.1:{PORT}/swagger");
+    }
 
-        // تحميل الواجهة الرسمية المدمجة
-        _webView.LoadUrl("file:///android_asset/web/index.html");
-
-        _ripperService.OnLogReceived += (log) =>
-        {
-            RunOnUiThread(() =>
-            {
-                string safeLog = log.Replace("'", "\\'").Replace("\n", " ");
-                _webView.EvaluateJavascript($"log('{safeLog}');", null);
-            });
-        };
-
-        _selectedOutputPath = Path.Combine(
+    public string GetDefaultExportPath()
+    {
+        string dir = Path.Combine(
             global::Android.OS.Environment.GetExternalStoragePublicDirectory(global::Android.OS.Environment.DirectoryDownloads)!.AbsolutePath,
             "AssetRipper_Export"
         );
+        Directory.CreateDirectory(dir);
+        return dir;
     }
 
     public void TriggerFilePicker()
@@ -74,58 +86,48 @@ public class MainActivity : Activity
         StartActivityForResult(intent, REQUEST_PICK_FILE);
     }
 
-    public async void StartExtraction(bool exportAsUnity)
+    public void TriggerFolderPicker()
     {
-        if (string.IsNullOrEmpty(_selectedInputPath)) return;
-
-        Directory.CreateDirectory(_selectedOutputPath!);
-        await _ripperService.ExtractGameAsync(_selectedInputPath, _selectedOutputPath!);
-
-        RunOnUiThread(() =>
-        {
-            _webView?.EvaluateJavascript("onExtractionCompleted(true);", null);
-        });
+        var intent = new Intent(Intent.ActionOpenDocumentTree);
+        StartActivityForResult(intent, REQUEST_PICK_FOLDER);
     }
 
-    protected override void OnActivityResult(int requestCode, Result resultCode, Intent? data)
+    protected override async void OnActivityResult(int requestCode, Result resultCode, Intent? data)
     {
         base.OnActivityResult(requestCode, resultCode, data);
 
         if (resultCode == Result.Ok && data?.Data != null)
         {
-            string cachePath = Path.Combine(CacheDir!.AbsolutePath, "input_game_asset.bin");
-            using var inputStream = ContentResolver!.OpenInputStream(data.Data);
-            using var outputStream = System.IO.File.Create(cachePath);
-            inputStream!.CopyTo(outputStream);
-
-            _selectedInputPath = cachePath;
-            string fileName = System.IO.Path.GetFileName(data.Data.Path ?? "game_asset");
-
-            RunOnUiThread(() =>
+            if (requestCode == REQUEST_PICK_FILE)
             {
-                _webView?.EvaluateJavascript($"onFileSelected('{fileName}');", null);
-            });
+                string cachePath = Path.Combine(CacheDir!.AbsolutePath, "game_asset.bin");
+                using var inputStream = ContentResolver!.OpenInputStream(data.Data);
+                using var outputStream = System.IO.File.Create(cachePath);
+                inputStream!.CopyTo(outputStream);
+
+                await _ripperService.LoadGameAsync(new List<string> { cachePath });
+                Android.Widget.Toast.MakeText(this, "Game File Loaded via API!", Android.Widget.ToastLength.Short)!.Show();
+            }
+            else if (requestCode == REQUEST_PICK_FOLDER)
+            {
+                string resolvedPath = ResolveStoragePath(data.Data);
+                await _ripperService.LoadGameAsync(new List<string> { resolvedPath });
+                Android.Widget.Toast.MakeText(this, $"PC Game Folder Mounted: {resolvedPath}", Android.Widget.ToastLength.Long)!.Show();
+            }
         }
     }
 
-    // كلاس جسر التواصل بين واجهة الويب ونظام أندرويد
-    public class WebAppInterface : Java.Lang.Object
+    private string ResolveStoragePath(Android.Net.Uri uri)
     {
-        private readonly MainActivity _activity;
-        public WebAppInterface(MainActivity activity) => _activity = activity;
+        string docId = Android.Provider.DocumentsContract.GetTreeDocumentId(uri) ?? "";
+        string[] parts = docId.Split(':');
+        string type = parts[0];
+        string relativePath = parts.Length > 1 ? parts[1] : "";
 
-        [Export]
-        [JavascriptInterface]
-        public void pickFile()
+        if ("primary".Equals(type, StringComparison.OrdinalIgnoreCase))
         {
-            _activity.RunOnUiThread(() => _activity.TriggerFilePicker());
+            return Path.Combine(Android.OS.Environment.ExternalStorageDirectory!.AbsolutePath, relativePath);
         }
-
-        [Export]
-        [JavascriptInterface]
-        public void runExtraction(bool isUnityProject)
-        {
-            _activity.StartExtraction(isUnityProject);
-        }
+        return Path.Combine("/storage", type, relativePath);
     }
 }
