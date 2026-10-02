@@ -30,24 +30,24 @@ public class MainActivity : Activity
             }
         }
 
-        // تشغيل خادم الـ REST API الرسمي
+        // تشغيل خادم الـ REST API الرسمي لـ AssetRipper
         _apiServer = new AssetRipperApiServer(_ripperService, this, PORT);
         _apiServer.Start();
 
-        var layout = new Android.Widget.LinearLayout(this)
+        var layout = new global::Android.Widget.LinearLayout(this)
         {
-            Orientation = Android.Widget.Orientation.Vertical,
+            Orientation = global::Android.Widget.Orientation.Vertical,
             LayoutParameters = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent)
         };
 
-        // زر علوي لفتح واجهة Swagger في متصفح Chrome
-        var btnOpenChrome = new Android.Widget.Button(this)
+        // زر علوي لفتح واجهة Swagger في متصفح Google Chrome
+        var btnOpenChrome = new global::Android.Widget.Button(this)
         {
             Text = "🌐 Open Official Swagger in Chrome"
         };
         btnOpenChrome.Click += (s, e) =>
         {
-            var intent = new Intent(Intent.ActionView, Android.Net.Uri.Parse($"http://127.0.0.1:{PORT}/swagger"));
+            var intent = new Intent(Intent.ActionView, global::Android.Net.Uri.Parse($"http://127.0.0.1:{PORT}/swagger"));
             intent.AddFlags(ActivityFlags.NewTask);
             StartActivity(intent);
         };
@@ -56,7 +56,7 @@ public class MainActivity : Activity
         // شاشة الـ WebView الداخلية لعرض Swagger داخل التطبيق
         _webView = new WebView(this)
         {
-            LayoutParameters = new Android.Widget.LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 0, 1.0f)
+            LayoutParameters = new global::Android.Widget.LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 0, 1.0f)
         };
         _webView.Settings.JavaScriptEnabled = true;
         _webView.Settings.DomStorageEnabled = true;
@@ -106,27 +106,27 @@ public class MainActivity : Activity
                 inputStream!.CopyTo(outputStream);
 
                 await _ripperService.LoadGameAsync(new List<string> { cachePath });
-                Android.Widget.Toast.MakeText(this, "Game File Loaded via API!", Android.Widget.ToastLength.Short)!.Show();
+                global::Android.Widget.Toast.MakeText(this, "Game File Loaded via API!", global::Android.Widget.ToastLength.Short)!.Show();
             }
             else if (requestCode == REQUEST_PICK_FOLDER)
             {
                 string resolvedPath = ResolveStoragePath(data.Data);
                 await _ripperService.LoadGameAsync(new List<string> { resolvedPath });
-                Android.Widget.Toast.MakeText(this, $"PC Game Folder Mounted: {resolvedPath}", Android.Widget.ToastLength.Long)!.Show();
+                global::Android.Widget.Toast.MakeText(this, $"PC Game Folder Mounted: {resolvedPath}", global::Android.Widget.ToastLength.Long)!.Show();
             }
         }
     }
 
-    private string ResolveStoragePath(Android.Net.Uri uri)
+    private string ResolveStoragePath(global::Android.Net.Uri uri)
     {
-        string docId = Android.Provider.DocumentsContract.GetTreeDocumentId(uri) ?? "";
+        string docId = global::Android.Provider.DocumentsContract.GetTreeDocumentId(uri) ?? "";
         string[] parts = docId.Split(':');
         string type = parts[0];
         string relativePath = parts.Length > 1 ? parts[1] : "";
 
         if ("primary".Equals(type, StringComparison.OrdinalIgnoreCase))
         {
-            return Path.Combine(Android.OS.Environment.ExternalStorageDirectory!.AbsolutePath, relativePath);
+            return Path.Combine(global::Android.OS.Environment.ExternalStorageDirectory!.AbsolutePath, relativePath);
         }
         return Path.Combine("/storage", type, relativePath);
     }
