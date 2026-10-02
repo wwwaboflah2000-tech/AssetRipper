@@ -88,8 +88,11 @@ public class AssetRipperService
             try
             {
                 OnLogReceived?.Invoke($"[AssetRipper API] Exporting Raw Primary Content to: {outputDir}");
-                var primaryExporter = new PrimaryContentExporter(_configuration);
-                primaryExporter.Export(_loadedGameData.GameBundle, outputDir, _fileSystem);
+                Directory.SetCurrentDirectory(outputDir);
+                
+                // استدعاء دالة التصدير الاستاتيكية الرسمية لـ PrimaryContentExporter
+                PrimaryContentExporter.Export(_loadedGameData.GameBundle, _configuration, _fileSystem);
+                
                 OnLogReceived?.Invoke("[AssetRipper API] Export Primary Content finished successfully!");
                 return true;
             }
